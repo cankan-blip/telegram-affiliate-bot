@@ -1,7 +1,5 @@
-from fastapi import FastAPI, Request, HTTPException, Body
+from fastapi import FastAPI, Request, Response, HTTPException, Body
 from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 import os
 from typing import Optional, List, Dict, Any
@@ -12,18 +10,19 @@ import link_transformer as transformer
 import publisher as pub
 import scheduler as sched
 
+try:
+    import frontend_bundle
+except ImportError:
+    frontend_bundle = None
+
 app = FastAPI(title="Telegram Sponsor & Affiliate Otomasyonu", version="1.0.0")
 
-# Setup directories
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 
 os.makedirs(STATIC_DIR, exist_ok=True)
 os.makedirs(TEMPLATES_DIR, exist_ok=True)
-
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
-templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 # Initialize Database & Scheduler on startup
 @app.on_event("startup")
@@ -34,7 +33,42 @@ def startup_event():
 # --- WEB DASHBOARD ROUTE ---
 @app.get("/", response_class=HTMLResponse)
 def read_dashboard(request: Request):
-    return templates.TemplateResponse(request=request, name="index.html")
+    index_file = os.path.join(TEMPLATES_DIR, "index.html")
+    if os.path.exists(index_file):
+        try:
+            with open(index_file, "r", encoding="utf-8") as f:
+                return HTMLResponse(content=f.read())
+        except Exception:
+            pass
+    if frontend_bundle and hasattr(frontend_bundle, "INDEX_HTML"):
+        return HTMLResponse(content=frontend_bundle.INDEX_HTML)
+    return HTMLResponse(content="<h1>Telegram Affiliate Dashboard</h1><p>Panel yukleniyor...</p>")
+
+@app.get("/static/style.css")
+def get_style_css():
+    css_file = os.path.join(STATIC_DIR, "style.css")
+    if os.path.exists(css_file):
+        try:
+            with open(css_file, "r", encoding="utf-8") as f:
+                return Response(content=f.read(), media_type="text/css")
+        except Exception:
+            pass
+    if frontend_bundle and hasattr(frontend_bundle, "STYLE_CSS"):
+        return Response(content=frontend_bundle.STYLE_CSS, media_type="text/css")
+    return Response(content="", media_type="text/css")
+
+@app.get("/static/app.js")
+def get_app_js():
+    js_file = os.path.join(STATIC_DIR, "app.js")
+    if os.path.exists(js_file):
+        try:
+            with open(js_file, "r", encoding="utf-8") as f:
+                return Response(content=f.read(), media_type="application/javascript")
+        except Exception:
+            pass
+    if frontend_bundle and hasattr(frontend_bundle, "APP_JS"):
+        return Response(content=frontend_bundle.APP_JS, media_type="application/javascript")
+    return Response(content="", media_type="application/javascript")
 
 # --- STATS API ---
 @app.get("/api/stats")
