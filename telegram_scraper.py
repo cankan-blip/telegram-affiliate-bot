@@ -50,21 +50,32 @@ def fetch_latest_channel_post(channel_input: str) -> Optional[Dict[str, Any]]:
                 
             soup = BeautifulSoup(response.text, "html.parser")
             
-            # Find all message widgets
-            messages = soup.find_all("div", class_=re.compile(r"tgme_widget_message\b"))
+            # Find all message widgets with data-post
+            messages = soup.find_all("div", attrs={"data-post": True})
+            if not messages:
+                messages = soup.find_all("div", class_=re.compile(r"tgme_widget_message\b"))
+                
             if not messages:
                 logger.warning(f"No messages found for channel @{channel_name}")
                 return None
                 
-            # Take the last message (latest)
+            # Filter out Telegram service messages (pinned a photo, joined channel, etc.)
             latest_msg = None
             for msg in reversed(messages):
-                # Ensure it has text or media content
+                classes = msg.get("class", [])
+                if "service_message" in classes:
+                    continue
+                    
                 text_div = msg.find("div", class_="tgme_widget_message_text")
-                photo_div = msg.find("a", class_=re.compile(r"tgme_widget_message_photo_default"))
-                video_div = msg.find("a", class_=re.compile(r"tgme_widget_message_video_player"))
+                raw_txt = text_div.get_text(separator=" ", strip=True).lower() if text_div else ""
+                if "pinned a photo" in raw_txt or "pinned a message" in raw_txt:
+                    continue
+                    
+                photo_wrap = msg.find(class_=re.compile(r"tgme_widget_message_photo"))
+                video_wrap = msg.find(class_=re.compile(r"tgme_widget_message_video"))
                 
-                if text_div or photo_div or video_div:
+                # Check if it contains actual text or media
+                if text_div or photo_wrap or video_wrap:
                     latest_msg = msg
                     break
                     
