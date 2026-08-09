@@ -71,9 +71,11 @@ def init_db():
         "post_hour": "12",
         "post_minute": "00",
         "auto_post_enabled": "true",
-        "cta_button_text": "🔥 Sponsor Özel Fırsatına Git",
+        "cta_button_text": "🔥 {SPONSOR} GİRİŞ İÇİN TIKLAYINIZ",
         "add_cta_button": "true",
-        "replace_all_links": "true"
+        "replace_all_links": "true",
+        "only_image_mode": "true",
+        "check_interval_hours": "1"
     }
     
     for key, value in default_settings.items():

@@ -36,11 +36,12 @@ def process_single_sponsor(sponsor_id: int):
     source_channel = sponsor["source_channel"]
     affiliate_link = sponsor["affiliate_link"]
     
-    cta_text = settings.get("cta_button_text", "🔥 Sponsor Özel Fırsatına Git")
+    cta_text = settings.get("cta_button_text", "🔥 {SPONSOR} GİRİŞ İÇİN TIKLAYINIZ")
     replace_all = settings.get("replace_all_links", "true").lower() == "true"
     add_cta = settings.get("add_cta_button", "true").lower() == "true"
+    only_image = settings.get("only_image_mode", "true").lower() == "true"
     
-    logger.info(f"Processing scheduled sponsor: {sponsor_name} (@{source_channel})")
+    logger.info(f"Processing scheduled sponsor: {sponsor_name} (@{source_channel}) [OnlyImageMode={only_image}]")
     
     post_data = scraper.fetch_latest_channel_post(source_channel)
     if not post_data:
@@ -55,7 +56,8 @@ def process_single_sponsor(sponsor_id: int):
         sponsor_name=sponsor_name,
         cta_text=cta_text,
         replace_all_links=replace_all,
-        add_cta_footer=add_cta
+        add_cta_footer=add_cta,
+        only_image_mode=only_image
     )
     
     for target in target_channels:
@@ -101,17 +103,32 @@ def keep_alive_ping():
     logger.info("Keep-alive heartbeat tick: Server active and operational.")
 
 def start_scheduler():
-    """Schedules a separate daily cron job for EACH active sponsor at its configured post_time."""
+    """Schedules jobs based on settings."""
     if scheduler.running:
         scheduler.remove_all_jobs()
     else:
         scheduler.start()
         
-    # Add 10-minute keep-alive ping to ensure server stays awake 24/7
+    # 1. 10-minute keep-alive ping to ensure server stays awake 24/7
     scheduler.add_job(keep_alive_ping, "interval", minutes=10, id="keep_alive_job")
     
     settings = db.get_settings()
     if settings.get("auto_post_enabled", "true").lower() == "true":
+        # 2. Hourly check job (checks for new posts every 1 hour)
+        try:
+            interval_hours = int(settings.get("check_interval_hours", 1))
+        except Exception:
+            interval_hours = 1
+            
+        scheduler.add_job(
+            run_daily_affiliate_job,
+            "interval",
+            hours=interval_hours,
+            id="hourly_check_job"
+        )
+        logger.info(f"Hourly Scanner Active: Checking sponsor channels every {interval_hours} hour(s).")
+
+        # 3. Individual Sponsor Hourly Schedules
         sponsors = db.get_active_sponsors()
         for sponsor in sponsors:
             post_time = sponsor.get("post_time", "12:00")

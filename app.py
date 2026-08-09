@@ -147,9 +147,10 @@ def preview_sponsor_post(sponsor_id: int):
         return {"success": False, "error": f"Sponsor kanalından (@{sponsor['source_channel']}) son gönderi çekilemedi."}
         
     settings = db.get_settings()
-    cta_text = settings.get("cta_button_text", "🔥 Sponsor Özel Fırsatına Git")
+    cta_text = settings.get("cta_button_text", "🔥 {SPONSOR} GİRİŞ İÇİN TIKLAYINIZ")
     replace_all = settings.get("replace_all_links", "true").lower() == "true"
     add_cta = settings.get("add_cta_button", "true").lower() == "true"
+    only_image = settings.get("only_image_mode", "true").lower() == "true"
     
     transformed = transformer.transform_post_content(
         post_data=post_data,
@@ -157,7 +158,8 @@ def preview_sponsor_post(sponsor_id: int):
         sponsor_name=sponsor["name"],
         cta_text=cta_text,
         replace_all_links=replace_all,
-        add_cta_footer=add_cta
+        add_cta_footer=add_cta,
+        only_image_mode=only_image
     )
     return {"success": True, "preview": transformed}
 
@@ -186,9 +188,10 @@ def send_single_test_post(req: SingleTestPost):
     if not post_data:
         raise HTTPException(status_code=400, detail=f"@{sponsor['source_channel']} kanalından gönderi okunamadı.")
         
-    cta_text = settings.get("cta_button_text", "🔥 Sponsor Özel Fırsatına Git")
+    cta_text = settings.get("cta_button_text", "🔥 {SPONSOR} GİRİŞ İÇİN TIKLAYINIZ")
     replace_all = settings.get("replace_all_links", "true").lower() == "true"
     add_cta = settings.get("add_cta_button", "true").lower() == "true"
+    only_image = settings.get("only_image_mode", "true").lower() == "true"
     
     transformed = transformer.transform_post_content(
         post_data=post_data,
@@ -196,7 +199,8 @@ def send_single_test_post(req: SingleTestPost):
         sponsor_name=sponsor["name"],
         cta_text=cta_text,
         replace_all_links=replace_all,
-        add_cta_footer=add_cta
+        add_cta_footer=add_cta,
+        only_image_mode=only_image
     )
     
     res = pub.send_telegram_post(

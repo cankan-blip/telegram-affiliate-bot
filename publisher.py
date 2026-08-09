@@ -54,8 +54,8 @@ def send_telegram_post(
                         files = {"photo": ("photo.jpg", img_resp.content, "image/jpeg")}
                         data_payload = {
                             "chat_id": target_channel,
-                            "caption": text,
-                            "parse_mode": "Markdown",
+                            "caption": text if text else None,
+                            "parse_mode": "Markdown" if text else None,
                             "reply_markup": json.dumps(reply_markup) if reply_markup else None
                         }
                         res = client.post(f"{api_url}/sendPhoto", data=data_payload, files=files)
