@@ -21,17 +21,17 @@ def clean_channel_username(channel_input: str) -> str:
         channel = channel[1:]
     return channel.strip("/")
 
+BONUS_KEYWORDS = [
+    'bonus', 'freespin', 'free spin', 'yatırım', 'oran', 'fırsat', 'kayıp', 
+    'hoşgeldin', 'etkinlik', 'çekiliş', 'ödül', 'turnuva', 'freebet', 
+    'promosyon', 'nakit', 'çevrim', 'çevrimsiz', 'özel oran', 'kazan', 
+    'kazanç', 'jackpot', 'pragmatic', 'sweet bonanza', 'gates of olympus'
+]
+
 def fetch_latest_channel_post(channel_input: str) -> Optional[Dict[str, Any]]:
     """
-    Fetches the latest post from a public Telegram channel via t.me/s/{channel_name}.
-    Returns a dictionary containing:
-    - msg_id: str
-    - text: str (raw text)
-    - html_text: str (with original links preserved)
-    - photo_url: Optional[str]
-    - video_url: Optional[str]
-    - date: str
-    - channel_username: str
+    Fetches the best bonus/promotion photo post from a public Telegram channel via t.me/s/{channel_name}.
+    Scores posts based on bonus keywords and recency to ensure maximum engagement.
     """
     channel_name = clean_channel_username(channel_input)
     url = f"https://t.me/s/{channel_name}"
@@ -59,95 +59,108 @@ def fetch_latest_channel_post(channel_input: str) -> Optional[Dict[str, Any]]:
                 logger.warning(f"No messages found for channel @{channel_name}")
                 return None
                 
-            # Filter out Telegram service messages (pinned a photo, joined channel, etc.)
-            latest_msg = None
-            for msg in reversed(messages):
+            candidates = []
+            
+            # Evaluate all messages from oldest to newest
+            for idx, msg in enumerate(messages):
                 classes = msg.get("class", [])
                 if "service_message" in classes:
                     continue
                     
                 text_div = msg.find("div", class_="tgme_widget_message_text")
-                raw_txt = text_div.get_text(separator=" ", strip=True).lower() if text_div else ""
-                if "pinned a photo" in raw_txt or "pinned a message" in raw_txt:
+                raw_text = text_div.get_text(separator="\n", strip=True) if text_div else ""
+                lower_text = raw_text.lower()
+                
+                # Exclude pin / system notifications
+                if "pinned a photo" in lower_text or "pinned a message" in lower_text:
                     continue
                     
-                photo_wrap = msg.find(class_=re.compile(r"tgme_widget_message_photo"))
-                video_wrap = msg.find(class_=re.compile(r"tgme_widget_message_video"))
-                
-                # Check if it contains actual text or media
-                if text_div or photo_wrap or video_wrap:
-                    latest_msg = msg
-                    break
+                # Extract Photo URL
+                photo_url = None
+                photo_elements = msg.find_all(class_=re.compile(r"tgme_widget_message_photo"))
+                for pe in photo_elements:
+                    style = pe.get("style", "")
+                    bg_match = re.search(r"background-image:\s*url\(['\"]?(https://[^'\"]+)['\"]?\)", style)
+                    if bg_match:
+                        photo_url = bg_match.group(1)
+                        break
+                        
+                if not photo_url:
+                    for tag in msg.find_all(True):
+                        style = tag.get("style", "")
+                        if "telesco.pe" in style or "cdn" in style:
+                            bg_match = re.search(r"background-image:\s*url\(['\"]?(https://[^'\"]+)['\"]?\)", style)
+                            if bg_match:
+                                photo_url = bg_match.group(1)
+                                break
+                                
+                video_url = None
+                video_thumb = msg.find("i", class_=re.compile(r"tgme_widget_message_video_thumb"))
+                if video_thumb and not photo_url:
+                    style = video_thumb.get("style", "")
+                    bg_match = re.search(r"background-image:url\('([^']+)'\)", style)
+                    if bg_match:
+                        photo_url = bg_match.group(1)
+                        
+                video_tag = msg.find("video")
+                if video_tag and video_tag.get("src"):
+                    video_url = video_tag.get("src")
                     
-            if not latest_msg:
+                # We prioritize posts that have a photo
+                if not photo_url and not text_div:
+                    continue
+                    
+                # Extract Post ID
+                post_data = msg.get("data-post", "")
+                msg_id = post_data.split("/")[-1] if "/" in post_data else post_data
+                
+                # Extract links
+                embedded_links = []
+                if text_div:
+                    for a in text_div.find_all("a"):
+                        href = a.get("href", "")
+                        link_text = a.get_text(strip=True)
+                        if href and not href.startswith("https://t.me/"):
+                            embedded_links.append({"text": link_text, "url": href})
+                            
+                # Extract Timestamp
+                time_tag = msg.find("time", class_="time")
+                msg_date = time_tag.get("datetime", "") if time_tag else ""
+                
+                # Calculate bonus score
+                kw_matches = [kw for kw in BONUS_KEYWORDS if kw in lower_text]
+                # High score if photo + bonus keywords + recency
+                score = (100 if photo_url else 10) + (len(kw_matches) * 25) + (idx * 2)
+                
+                candidates.append({
+                    "score": score,
+                    "msg_id": msg_id,
+                    "text": raw_text,
+                    "html_text": str(text_div) if text_div else "",
+                    "photo_url": photo_url,
+                    "video_url": video_url,
+                    "date": msg_date,
+                    "channel_username": channel_name,
+                    "embedded_links": embedded_links,
+                    "keywords": kw_matches
+                })
+                
+            if not candidates:
+                logger.warning(f"No valid candidates found for channel @{channel_name}")
                 return None
                 
-            # Extract Post ID
-            post_data = latest_msg.get("data-post", "")
-            msg_id = post_data.split("/")[-1] if "/" in post_data else post_data
+            # Filter candidates that have photos if any exist
+            photo_candidates = [c for c in candidates if c["photo_url"]]
+            pool = photo_candidates if photo_candidates else candidates
             
-            # Extract Text & HTML
-            text_div = latest_msg.find("div", class_="tgme_widget_message_text")
-            raw_text = text_div.get_text(separator="\n", strip=True) if text_div else ""
-            
-            # Extract links in the post
-            embedded_links = []
-            if text_div:
-                for a in text_div.find_all("a"):
-                    href = a.get("href", "")
-                    link_text = a.get_text(strip=True)
-                    if href and not href.startswith("https://t.me/"): # Exclude telegram hashtag/mention links if needed
-                        embedded_links.append({"text": link_text, "url": href})
-
-            # Extract Photo URL
-            photo_url = None
-            # Search for photo_wrap or photo elements
-            photo_elements = latest_msg.find_all(class_=re.compile(r"tgme_widget_message_photo"))
-            for pe in photo_elements:
-                style = pe.get("style", "")
-                bg_match = re.search(r"background-image:\s*url\(['\"]?(https://[^'\"]+)['\"]?\)", style)
-                if bg_match:
-                    photo_url = bg_match.group(1)
-                    break
-                    
-            if not photo_url:
-                # Fallback: search any element with telescop.pe / cdn image in style
-                for tag in latest_msg.find_all(True):
-                    style = tag.get("style", "")
-                    if "telesco.pe" in style or "cdn" in style:
-                        bg_match = re.search(r"background-image:\s*url\(['\"]?(https://[^'\"]+)['\"]?\)", style)
-                        if bg_match:
-                            photo_url = bg_match.group(1)
-                            break
-                    
-            # Extract Video URL
-            video_url = None
-            video_thumb = latest_msg.find("i", class_=re.compile(r"tgme_widget_message_video_thumb"))
-            if video_thumb:
-                style = video_thumb.get("style", "")
-                bg_match = re.search(r"background-image:url\('([^']+)'\)", style)
-                if bg_match:
-                    photo_url = bg_match.group(1) # Send thumbnail photo if video video file link not direct
-                    
-            video_tag = latest_msg.find("video")
-            if video_tag and video_tag.get("src"):
-                video_url = video_tag.get("src")
-                
-            # Extract Timestamp
-            time_tag = latest_msg.find("time", class_="time")
-            msg_date = time_tag.get("datetime", "") if time_tag else ""
-            
-            return {
-                "msg_id": msg_id,
-                "text": raw_text,
-                "photo_url": photo_url,
-                "video_url": video_url,
-                "date": msg_date,
-                "channel_username": channel_name,
-                "embedded_links": embedded_links,
-                "post_url": f"https://t.me/{channel_name}/{msg_id}" if msg_id else f"https://t.me/s/{channel_name}"
-            }
+            # Select the highest-scoring candidate
+            best_post = max(pool, key=lambda c: c["score"])
+            best_post["post_url"] = f"https://t.me/{channel_name}/{best_post['msg_id']}" if best_post.get("msg_id") else f"https://t.me/s/{channel_name}"
+            logger.info(f"Selected best post for @{channel_name}: msg_id={best_post['msg_id']}, score={best_post['score']}, kw={best_post['keywords']}")
+            return best_post
             
     except Exception as e:
+        logger.error(f"Error scraping @{channel_name}: {e}")
+        return None
         logger.error(f"Error scraping channel @{channel_name}: {e}")
         return None

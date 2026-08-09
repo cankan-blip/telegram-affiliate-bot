@@ -64,6 +64,11 @@ def process_single_sponsor(sponsor_id: int):
         target_id = target["channel_id"]
         target_name = target["channel_name"]
         
+        # Enforce 1 post per sponsor per day limit to prevent channel spam
+        if db.is_sponsor_posted_today(sponsor_id, target_id):
+            logger.info(f"Sponsor '{sponsor_name}' has already published its daily post to {target_name} today. Skipping.")
+            continue
+            
         if db.is_post_already_sent(sponsor_id, original_msg_id, target_id):
             logger.info(f"Post {original_msg_id} already sent to {target_name}, skipping.")
             continue
@@ -114,21 +119,7 @@ def start_scheduler():
     
     settings = db.get_settings()
     if settings.get("auto_post_enabled", "true").lower() == "true":
-        # 2. Hourly check job (checks for new posts every 1 hour)
-        try:
-            interval_hours = int(settings.get("check_interval_hours", 1))
-        except Exception:
-            interval_hours = 1
-            
-        scheduler.add_job(
-            run_daily_affiliate_job,
-            "interval",
-            hours=interval_hours,
-            id="hourly_check_job"
-        )
-        logger.info(f"Hourly Scanner Active: Checking sponsor channels every {interval_hours} hour(s).")
-
-        # 3. Individual Sponsor Hourly Schedules
+        # 2. Individual Sponsor Daily Schedules (Staggered times, strictly 1 post per sponsor per day)
         sponsors = db.get_active_sponsors()
         for sponsor in sponsors:
             post_time = sponsor.get("post_time", "12:00")
@@ -148,7 +139,7 @@ def start_scheduler():
                 minute=minute,
                 id=job_id
             )
-            logger.info(f"Scheduled Sponsor '{sponsor['name']}' daily at {hour:02d}:{minute:02d}")
+            logger.info(f"Scheduled Daily Post for Sponsor '{sponsor['name']}' at {hour:02d}:{minute:02d}")
 
 def reload_scheduler():
     start_scheduler()

@@ -212,6 +212,16 @@ def is_post_already_sent(sponsor_id: int, original_msg_id: str, target_channel: 
     conn.close()
     return row is not None
 
+def is_sponsor_posted_today(sponsor_id: int, target_channel: str) -> bool:
+    conn = get_db()
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    row = conn.execute(
+        "SELECT id FROM post_history WHERE sponsor_id = ? AND target_channel = ? AND status = 'SUCCESS' AND sent_at LIKE ?",
+        (sponsor_id, str(target_channel), f"{today_str}%")
+    ).fetchone()
+    conn.close()
+    return row is not None
+
 def log_post_history(sponsor_id: int, sponsor_name: str, source_channel: str, original_msg_id: str, content_preview: str, affiliate_link_used: str, target_channel: str, status: str, error_msg: str = ""):
     conn = get_db()
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
