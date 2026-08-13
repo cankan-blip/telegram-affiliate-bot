@@ -83,7 +83,7 @@ def init_db():
         "post_hour": "12",
         "post_minute": "00",
         "auto_post_enabled": "true",
-        "cta_button_text": "🔥 {SPONSOR} GİRİŞ İÇİN TIKLAYINIZ",
+        "cta_button_text": "🔥 TIKLA GİR - BONUSUNU AL!",
         "add_cta_button": "true",
         "replace_all_links": "true",
         "only_image_mode": "true",

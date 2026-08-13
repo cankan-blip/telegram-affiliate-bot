@@ -77,7 +77,7 @@ def process_single_sponsor(sponsor_id: int):
         
         btn_text = cta_text.replace("{SPONSOR}", sponsor_name.upper()).replace("{sponsor}", sponsor_name)
         if "{SPONSOR}" not in cta_text and "{sponsor}" not in cta_text:
-            btn_text = f"🔥 {sponsor_name.upper()} GİRİŞ & BONUSU AL"
+            btn_text = cta_text if cta_text else "🔥 TIKLA GİR - BONUSUNU AL!"
             
         transformed_post = {
             "sponsor_name": sponsor_name,

@@ -201,7 +201,7 @@ def preview_sponsor_post(sponsor_id: int):
         raise HTTPException(status_code=404, detail="Sponsor bulunamadı")
         
     settings = db.get_settings()
-    cta_text = settings.get("cta_button_text", "🔥 {SPONSOR} GİRİŞ İÇİN TIKLAYINIZ")
+    cta_text = settings.get("cta_button_text", "🔥 TIKLA GİR - BONUSUNU AL!")
     
     # Check custom bonus post
     custom_text = sponsor.get("custom_bonus_text") or db.get_default_bonus_text(sponsor["name"])
@@ -211,6 +211,8 @@ def preview_sponsor_post(sponsor_id: int):
     live_post = scraper.fetch_latest_channel_post(sponsor["source_channel"])
     
     btn_text = cta_text.replace("{SPONSOR}", sponsor["name"].upper()).replace("{sponsor}", sponsor["name"])
+    if "{SPONSOR}" not in cta_text and "{sponsor}" not in cta_text:
+        btn_text = cta_text if cta_text else "🔥 TIKLA GİR - BONUSUNU AL!"
     
     preview_data = {
         "sponsor_name": sponsor["name"],
@@ -250,8 +252,10 @@ def send_single_test_post(req: SingleTestPost):
     if not bot_token:
         raise HTTPException(status_code=400, detail="Telegram Bot Token ayarlar kısmında tanımlanmamış.")
         
-    cta_text = settings.get("cta_button_text", "🔥 {SPONSOR} GİRİŞ İÇİN TIKLAYINIZ")
+    cta_text = settings.get("cta_button_text", "🔥 TIKLA GİR - BONUSUNU AL!")
     btn_text = cta_text.replace("{SPONSOR}", sponsor["name"].upper()).replace("{sponsor}", sponsor["name"])
+    if "{SPONSOR}" not in cta_text and "{sponsor}" not in cta_text:
+        btn_text = cta_text if cta_text else "🔥 TIKLA GİR - BONUSUNU AL!"
     
     custom_text = sponsor.get("custom_bonus_text") or db.get_default_bonus_text(sponsor["name"])
     banner_url = sponsor.get("custom_banner_url", "").strip() or None
