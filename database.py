@@ -24,9 +24,21 @@ def init_db():
         affiliate_link TEXT NOT NULL,
         is_active INTEGER DEFAULT 1,
         created_at TEXT NOT NULL,
-        post_time TEXT DEFAULT '12:00'
+        post_time TEXT DEFAULT '12:00',
+        custom_bonus_text TEXT DEFAULT '',
+        custom_banner_url TEXT DEFAULT ''
     )
     """)
+    
+    # Add columns if upgrading existing table
+    try:
+        cursor.execute("ALTER TABLE sponsors ADD COLUMN custom_bonus_text TEXT DEFAULT ''")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE sponsors ADD COLUMN custom_banner_url TEXT DEFAULT ''")
+    except Exception:
+        pass
 
     # Target Channels Table
     cursor.execute("""
@@ -84,6 +96,16 @@ def init_db():
     conn.commit()
     conn.close()
 
+def get_default_bonus_text(name: str) -> str:
+    s = name.upper()
+    return (
+        f"🔥 **{s} | ÖZEL DENEME BONUSU & FREESPIN!** 🎁\n\n"
+        f"⚡ **Yatırımsız & Çevrimsiz Anında Hesabında!**\n"
+        f"🎰 Pragmatic Play & En Çok Kazandıran Slotlar\n"
+        f"💎 VIP Oranlar ve 7/24 Limitsiz Çekim Garantisi!\n\n"
+        f"👇 *Fırsatı kaçırmamak için aşağıdaki butona tıklayın:*"
+    )
+
 # --- SPONSOR OPERATIONS ---
 def get_all_sponsors() -> List[Dict[str, Any]]:
     conn = get_db()
@@ -97,7 +119,7 @@ def get_active_sponsors() -> List[Dict[str, Any]]:
     conn.close()
     return [dict(r) for r in rows]
 
-def add_sponsor(name: str, source_channel: str, affiliate_link: str, post_time: str = "12:00") -> Dict[str, Any]:
+def add_sponsor(name: str, source_channel: str, affiliate_link: str, post_time: str = "12:00", custom_bonus_text: str = "", custom_banner_url: str = "") -> Dict[str, Any]:
     # Clean channel format
     channel = source_channel.strip()
     if channel.startswith("https://t.me/"):
@@ -107,19 +129,30 @@ def add_sponsor(name: str, source_channel: str, affiliate_link: str, post_time: 
     elif not channel.startswith("@"):
         channel = "@" + channel
 
+    if not custom_bonus_text:
+        custom_bonus_text = get_default_bonus_text(name)
+
     conn = get_db()
     cursor = conn.cursor()
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     cursor.execute(
-        "INSERT INTO sponsors (name, source_channel, affiliate_link, is_active, created_at, post_time) VALUES (?, ?, ?, 1, ?, ?)",
-        (name, channel, affiliate_link, now, post_time)
+        "INSERT INTO sponsors (name, source_channel, affiliate_link, is_active, created_at, post_time, custom_bonus_text, custom_banner_url) VALUES (?, ?, ?, 1, ?, ?, ?, ?)",
+        (name, channel, affiliate_link, now, post_time, custom_bonus_text, custom_banner_url)
     )
     conn.commit()
     sponsor_id = cursor.lastrowid
     conn.close()
-    return {"id": sponsor_id, "name": name, "source_channel": channel, "affiliate_link": affiliate_link, "post_time": post_time}
+    return {
+        "id": sponsor_id, 
+        "name": name, 
+        "source_channel": channel, 
+        "affiliate_link": affiliate_link, 
+        "post_time": post_time,
+        "custom_bonus_text": custom_bonus_text,
+        "custom_banner_url": custom_banner_url
+    }
 
-def update_sponsor(sponsor_id: int, name: str, source_channel: str, affiliate_link: str, is_active: int, post_time: str = "12:00"):
+def update_sponsor(sponsor_id: int, name: str, source_channel: str, affiliate_link: str, is_active: int, post_time: str = "12:00", custom_bonus_text: str = "", custom_banner_url: str = ""):
     channel = source_channel.strip()
     if channel.startswith("https://t.me/"):
         channel = "@" + channel.replace("https://t.me/", "").strip("/")
@@ -128,10 +161,13 @@ def update_sponsor(sponsor_id: int, name: str, source_channel: str, affiliate_li
     elif not channel.startswith("@"):
         channel = "@" + channel
 
+    if not custom_bonus_text:
+        custom_bonus_text = get_default_bonus_text(name)
+
     conn = get_db()
     conn.execute(
-        "UPDATE sponsors SET name = ?, source_channel = ?, affiliate_link = ?, is_active = ?, post_time = ? WHERE id = ?",
-        (name, channel, affiliate_link, is_active, post_time, sponsor_id)
+        "UPDATE sponsors SET name = ?, source_channel = ?, affiliate_link = ?, is_active = ?, post_time = ?, custom_bonus_text = ?, custom_banner_url = ? WHERE id = ?",
+        (name, channel, affiliate_link, is_active, post_time, custom_bonus_text, custom_banner_url, sponsor_id)
     )
     conn.commit()
     conn.close()

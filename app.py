@@ -93,11 +93,14 @@ def get_stats():
     }
 
 # --- SPONSORS API ---
+# --- SPONSORS API ---
 class SponsorCreate(BaseModel):
     name: str
     source_channel: str
     affiliate_link: str
     post_time: Optional[str] = "12:00"
+    custom_bonus_text: Optional[str] = ""
+    custom_banner_url: Optional[str] = ""
 
 class SponsorUpdate(BaseModel):
     name: str
@@ -105,6 +108,8 @@ class SponsorUpdate(BaseModel):
     affiliate_link: str
     is_active: int
     post_time: Optional[str] = "12:00"
+    custom_bonus_text: Optional[str] = ""
+    custom_banner_url: Optional[str] = ""
 
 @app.get("/api/sponsors")
 def list_sponsors():
@@ -113,18 +118,37 @@ def list_sponsors():
 @app.post("/api/sponsors")
 def create_sponsor(sponsor: SponsorCreate):
     if not sponsor.name or not sponsor.source_channel or not sponsor.affiliate_link:
-        raise HTTPException(status_code=400, detail="Lütfen tüm alanları doldurun.")
-    new_sponsor = db.add_sponsor(sponsor.name, sponsor.source_channel, sponsor.affiliate_link, sponsor.post_time or "12:00")
+        raise HTTPException(status_code=400, detail="Lütfen tüm zorunlu alanları doldurun.")
+    new_sponsor = db.add_sponsor(
+        name=sponsor.name,
+        source_channel=sponsor.source_channel,
+        affiliate_link=sponsor.affiliate_link,
+        post_time=sponsor.post_time or "12:00",
+        custom_bonus_text=sponsor.custom_bonus_text or "",
+        custom_banner_url=sponsor.custom_banner_url or ""
+    )
+    sched.reload_scheduler()
     return {"success": True, "sponsor": new_sponsor}
 
 @app.put("/api/sponsors/{sponsor_id}")
 def edit_sponsor(sponsor_id: int, sponsor: SponsorUpdate):
-    db.update_sponsor(sponsor_id, sponsor.name, sponsor.source_channel, sponsor.affiliate_link, sponsor.is_active, sponsor.post_time or "12:00")
+    db.update_sponsor(
+        sponsor_id=sponsor_id,
+        name=sponsor.name,
+        source_channel=sponsor.source_channel,
+        affiliate_link=sponsor.affiliate_link,
+        is_active=sponsor.is_active,
+        post_time=sponsor.post_time or "12:00",
+        custom_bonus_text=sponsor.custom_bonus_text or "",
+        custom_banner_url=sponsor.custom_banner_url or ""
+    )
+    sched.reload_scheduler()
     return {"success": True}
 
 @app.delete("/api/sponsors/{sponsor_id}")
 def remove_sponsor(sponsor_id: int):
     db.delete_sponsor(sponsor_id)
+    sched.reload_scheduler()
     return {"success": True}
 
 # --- TARGET CHANNELS API ---
@@ -176,26 +200,34 @@ def preview_sponsor_post(sponsor_id: int):
     if not sponsor:
         raise HTTPException(status_code=404, detail="Sponsor bulunamadı")
         
-    post_data = scraper.fetch_latest_channel_post(sponsor["source_channel"])
-    if not post_data:
-        return {"success": False, "error": f"Sponsor kanalından (@{sponsor['source_channel']}) son gönderi çekilemedi."}
-        
     settings = db.get_settings()
     cta_text = settings.get("cta_button_text", "🔥 {SPONSOR} GİRİŞ İÇİN TIKLAYINIZ")
-    replace_all = settings.get("replace_all_links", "true").lower() == "true"
-    add_cta = settings.get("add_cta_button", "true").lower() == "true"
-    only_image = settings.get("only_image_mode", "true").lower() == "true"
     
-    transformed = transformer.transform_post_content(
-        post_data=post_data,
-        affiliate_link=sponsor["affiliate_link"],
-        sponsor_name=sponsor["name"],
-        cta_text=cta_text,
-        replace_all_links=replace_all,
-        add_cta_footer=add_cta,
-        only_image_mode=only_image
-    )
-    return {"success": True, "preview": transformed}
+    # Check custom bonus post
+    custom_text = sponsor.get("custom_bonus_text") or db.get_default_bonus_text(sponsor["name"])
+    banner_url = sponsor.get("custom_banner_url", "").strip() or None
+    
+    # Check Saturday live channel scrape
+    live_post = scraper.fetch_latest_channel_post(sponsor["source_channel"])
+    
+    btn_text = cta_text.replace("{SPONSOR}", sponsor["name"].upper()).replace("{sponsor}", sponsor["name"])
+    
+    preview_data = {
+        "sponsor_name": sponsor["name"],
+        "source_channel": sponsor["source_channel"],
+        "affiliate_link": sponsor["affiliate_link"],
+        "cta_text": btn_text,
+        # Normal Day post preview
+        "daily_bonus_text": custom_text,
+        "daily_banner_url": banner_url,
+        "transformed_text": custom_text,
+        "photo_url": banner_url or (live_post.get("photo_url") if live_post else None),
+        # Saturday live channel post preview
+        "saturday_photo_url": live_post.get("photo_url") if live_post else None,
+        "has_live_channel": live_post is not None
+    }
+    
+    return {"success": True, "preview": preview_data}
 
 @app.post("/api/trigger-job-now")
 def trigger_job_now():
@@ -218,31 +250,33 @@ def send_single_test_post(req: SingleTestPost):
     if not bot_token:
         raise HTTPException(status_code=400, detail="Telegram Bot Token ayarlar kısmında tanımlanmamış.")
         
-    post_data = scraper.fetch_latest_channel_post(sponsor["source_channel"])
-    if not post_data:
-        raise HTTPException(status_code=400, detail=f"@{sponsor['source_channel']} kanalından gönderi okunamadı.")
-        
     cta_text = settings.get("cta_button_text", "🔥 {SPONSOR} GİRİŞ İÇİN TIKLAYINIZ")
-    replace_all = settings.get("replace_all_links", "true").lower() == "true"
-    add_cta = settings.get("add_cta_button", "true").lower() == "true"
-    only_image = settings.get("only_image_mode", "true").lower() == "true"
+    btn_text = cta_text.replace("{SPONSOR}", sponsor["name"].upper()).replace("{sponsor}", sponsor["name"])
     
-    transformed = transformer.transform_post_content(
-        post_data=post_data,
-        affiliate_link=sponsor["affiliate_link"],
-        sponsor_name=sponsor["name"],
-        cta_text=cta_text,
-        replace_all_links=replace_all,
-        add_cta_footer=add_cta,
-        only_image_mode=only_image
-    )
+    custom_text = sponsor.get("custom_bonus_text") or db.get_default_bonus_text(sponsor["name"])
+    banner_url = sponsor.get("custom_banner_url", "").strip() or None
+    
+    # Try channel photo if banner_url is empty
+    if not banner_url:
+        live_post = scraper.fetch_latest_channel_post(sponsor["source_channel"])
+        if live_post and live_post.get("photo_url"):
+            banner_url = live_post.get("photo_url")
+            
+    transformed = {
+        "sponsor_name": sponsor["name"],
+        "transformed_text": custom_text,
+        "photo_url": banner_url,
+        "video_url": None,
+        "affiliate_link": sponsor["affiliate_link"],
+        "cta_text": btn_text
+    }
     
     res = pub.send_telegram_post(
         bot_token=bot_token,
         target_channel=req.target_channel_id,
         post=transformed,
-        cta_text=cta_text,
-        add_inline_button=add_cta
+        cta_text=btn_text,
+        add_inline_button=True
     )
     
     status = "SUCCESS" if res.get("success") else "FAILED"

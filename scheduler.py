@@ -5,9 +5,11 @@ import link_transformer as transformer
 import publisher as pub
 import logging
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 logger = logging.getLogger("scheduler")
-scheduler = BackgroundScheduler()
+TZ_TURKEY = ZoneInfo("Europe/Istanbul")
+scheduler = BackgroundScheduler(timezone=TZ_TURKEY)
 
 def process_single_sponsor(sponsor_id: int):
     """
@@ -41,25 +43,52 @@ def process_single_sponsor(sponsor_id: int):
     add_cta = settings.get("add_cta_button", "true").lower() == "true"
     only_image = settings.get("only_image_mode", "true").lower() == "true"
     
-    logger.info(f"Processing scheduled sponsor: {sponsor_name} (@{source_channel}) [OnlyImageMode={only_image}]")
+    now_turkey = datetime.now(TZ_TURKEY)
+    is_saturday = (now_turkey.weekday() == 5) # 5 = Saturday
     
-    post_data = scraper.fetch_latest_channel_post(source_channel)
-    if not post_data:
-        logger.warning(f"Could not fetch latest post from @{source_channel}")
-        return
+    transformed_post = None
+    original_msg_id = ""
+    
+    # Mode A: On Saturdays -> Scrape clean image from sponsor's Telegram channel
+    if is_saturday:
+        logger.info(f"[Saturday Mode] Scraping fresh live banner from @{source_channel} for {sponsor_name}")
+        post_data = scraper.fetch_latest_channel_post(source_channel)
+        if post_data and post_data.get("photo_url"):
+            original_msg_id = post_data.get("msg_id", "")
+            transformed_post = transformer.transform_post_content(
+                post_data=post_data,
+                affiliate_link=affiliate_link,
+                sponsor_name=sponsor_name,
+                cta_text=cta_text,
+                replace_all_links=replace_all,
+                add_cta_footer=add_cta,
+                only_image_mode=True # Saturday: Only Image + CTA Button
+            )
+            
+    # Mode B: Normal Days (Sunday to Friday) OR Fallback if Saturday scraping has no photo
+    if not transformed_post:
+        logger.info(f"[Daily Bonus Mode] Building custom bonus & promo post for {sponsor_name}")
+        custom_text = sponsor.get("custom_bonus_text")
+        if not custom_text:
+            custom_text = db.get_default_bonus_text(sponsor_name)
+            
+        banner_url = sponsor.get("custom_banner_url", "").strip() or None
+        original_msg_id = f"bonus_{now_turkey.strftime('%Y%m%d')}_{sponsor_id}"
         
-    original_msg_id = post_data.get("msg_id", "")
-    
-    transformed_post = transformer.transform_post_content(
-        post_data=post_data,
-        affiliate_link=affiliate_link,
-        sponsor_name=sponsor_name,
-        cta_text=cta_text,
-        replace_all_links=replace_all,
-        add_cta_footer=add_cta,
-        only_image_mode=only_image
-    )
-    
+        btn_text = cta_text.replace("{SPONSOR}", sponsor_name.upper()).replace("{sponsor}", sponsor_name)
+        if "{SPONSOR}" not in cta_text and "{sponsor}" not in cta_text:
+            btn_text = f"🔥 {sponsor_name.upper()} GİRİŞ & BONUSU AL"
+            
+        transformed_post = {
+            "sponsor_name": sponsor_name,
+            "transformed_text": custom_text,
+            "photo_url": banner_url,
+            "video_url": None,
+            "affiliate_link": affiliate_link,
+            "cta_text": btn_text,
+            "post_mode": "custom_bonus"
+        }
+        
     for target in target_channels:
         target_id = target["channel_id"]
         target_name = target["channel_name"]
@@ -101,11 +130,39 @@ def run_daily_affiliate_job():
     sponsors = db.get_active_sponsors()
     for s in sponsors:
         process_single_sponsor(s["id"])
-    return {"status": "completed", "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+    return {"status": "completed", "timestamp": datetime.now(TZ_TURKEY).strftime("%Y-%m-%d %H:%M:%S")}
+
+def auto_catchup_daily_posts():
+    """
+    Periodic catch-up task (runs every 15 minutes).
+    Checks if any sponsor's scheduled post hour has arrived today in Turkey time,
+    and publishes it if not already sent today. This guarantees 100% reliability even if cloud slept.
+    """
+    settings = db.get_settings()
+    if settings.get("auto_post_enabled", "true").lower() != "true":
+        return
+        
+    now_turkey = datetime.now(TZ_TURKEY)
+    current_hour = now_turkey.hour
+    current_minute = now_turkey.minute
+    
+    sponsors = db.get_active_sponsors()
+    for sponsor in sponsors:
+        post_time = sponsor.get("post_time", "12:00")
+        try:
+            parts = post_time.split(":")
+            s_hour = int(parts[0])
+            s_minute = int(parts[1]) if len(parts) > 1 else 0
+        except Exception:
+            s_hour, s_minute = 12, 0
+            
+        # If current time is at or past the scheduled time today
+        if (current_hour > s_hour) or (current_hour == s_hour and current_minute >= s_minute):
+            process_single_sponsor(sponsor["id"])
 
 def keep_alive_ping():
     """Heartbeat job running every 10 minutes to prevent free cloud hosts (like Render) from sleeping."""
-    logger.info("Keep-alive heartbeat tick: Server active and operational.")
+    logger.info(f"Keep-alive heartbeat tick [{datetime.now(TZ_TURKEY).strftime('%Y-%m-%d %H:%M:%S')} TRT]: Server active and operational.")
 
 def start_scheduler():
     """Schedules jobs based on settings."""
@@ -114,12 +171,15 @@ def start_scheduler():
     else:
         scheduler.start()
         
-    # 1. 10-minute keep-alive ping to ensure server stays awake 24/7
+    # 1. 10-minute keep-alive ping
     scheduler.add_job(keep_alive_ping, "interval", minutes=10, id="keep_alive_job")
+    
+    # 2. 15-minute auto catch-up scanner (ensures zero missed daily posts)
+    scheduler.add_job(auto_catchup_daily_posts, "interval", minutes=15, id="auto_catchup_job")
     
     settings = db.get_settings()
     if settings.get("auto_post_enabled", "true").lower() == "true":
-        # 2. Individual Sponsor Daily Schedules (Staggered times, strictly 1 post per sponsor per day)
+        # 3. Individual Sponsor Daily Schedules (Turkey Time UTC+3)
         sponsors = db.get_active_sponsors()
         for sponsor in sponsors:
             post_time = sponsor.get("post_time", "12:00")
@@ -137,9 +197,11 @@ def start_scheduler():
                 args=[sponsor["id"]],
                 hour=hour,
                 minute=minute,
+                timezone=TZ_TURKEY,
+                misfire_grace_time=3600,
                 id=job_id
             )
-            logger.info(f"Scheduled Daily Post for Sponsor '{sponsor['name']}' at {hour:02d}:{minute:02d}")
+            logger.info(f"Scheduled Daily Post for Sponsor '{sponsor['name']}' at {hour:02d}:{minute:02d} (Turkey Time)")
 
 def reload_scheduler():
     start_scheduler()
