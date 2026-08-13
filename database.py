@@ -79,7 +79,7 @@ def init_db():
     
     # Insert Default Settings if empty
     default_settings = {
-        "bot_token": "",
+        "bot_token": "8669146607:AAEHgQD8k_jUPRPaS8bGEEx6vYGnG9l2by0",
         "post_hour": "12",
         "post_minute": "00",
         "auto_post_enabled": "true",
@@ -93,6 +93,100 @@ def init_db():
     for key, value in default_settings.items():
         cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", (key, value))
         
+    # Pre-seed Sponsors with exact user texts and phototourl banner links
+    default_sponsors = [
+        {
+            "name": "casivera",
+            "source_channel": "@casivera",
+            "affiliate_link": "https://csvera.link/BocekCasino",
+            "post_time": "12:00",
+            "custom_banner_url": "https://cdn.phototourl.com/member/2026-08-13-94356eb1-3d75-4401-808d-c004775475fc.jpg",
+            "custom_bonus_text": "⚔️ 1.000 TL DENEME BONUSU!\n\n⚡ %30 KAYIP BONUSU!\n\n🎰 HERGÜN HEDİYE FREESPİN!\n\n🎉 100 TL HAVALE YATIRIMI!"
+        },
+        {
+            "name": "robinbet",
+            "source_channel": "@robinresmi",
+            "affiliate_link": "https://robinaa.xyz/pwyxlj",
+            "post_time": "13:00",
+            "custom_banner_url": "https://cdn.phototourl.com/member/2026-08-13-674f5325-77a0-4983-b00c-85f33e44cca0.png",
+            "custom_bonus_text": "⚔️ 500 TL DENEME BONUSU!\n\n🎯 HERGÜN BEDAVA FREESPİN!\n\n⚡ %30 KAYIP BONUSU!\n\n🎉 250 TL HAVALE YATIRIMI!"
+        },
+        {
+            "name": "Natobet",
+            "source_channel": "@natobet",
+            "affiliate_link": "https://track.natoaff.com/processing/click?btag=27008",
+            "post_time": "14:00",
+            "custom_banner_url": "https://cdn.phototourl.com/member/2026-08-13-ee64fc40-44d4-4161-86da-4569998ef713.jpg",
+            "custom_bonus_text": "⚔️ 250 TL DENEME BONUSU!\n\n🎁 %200 HOŞGELDİN BONUS FIRSATI!\n\n⚡ %20 KAYIP BONUSU!\n\n🎉 250TL HAVALE YATIRIMI!"
+        },
+        {
+            "name": "Beygirbet",
+            "source_channel": "@beygirbetresmisosyal",
+            "affiliate_link": "https://beygirbetxyls.xyz/cnkn",
+            "post_time": "15:00",
+            "custom_banner_url": "https://cdn.phototourl.com/member/2026-08-13-6af2a473-2b0b-43a2-918d-413b88e5955b.jpg",
+            "custom_bonus_text": "⚔️ 333 FREESPİN  DENEME BONUSU!\n\n⚡ %20 ANLIK +%5 HAFTALIK KAYIP BONUSU!\n\n🎉 250 TL HAVALE YATIRIMI!"
+        },
+        {
+            "name": "Betbey",
+            "source_channel": "@bbeysociall",
+            "affiliate_link": "https://bbey.live/?btag=269469",
+            "post_time": "16:00",
+            "custom_banner_url": "https://cdn.phototourl.com/member/2026-08-13-f35be8d4-558b-4587-ab54-e2bca2a1a790.png",
+            "custom_bonus_text": "⚔️ 800 TL DENEME BONUSU!\n\n🎁 %100 HOŞGELDİN BONUS FIRSATI!\n\n⚡ %35 KAYIP BONUSU!\n\n🎉 250 TL HAVALE YATIRIMI!"
+        },
+        {
+            "name": "Casinodior",
+            "source_channel": "@diorresminew",
+            "affiliate_link": "https://www.diorlink.com/links/?btag=2779471",
+            "post_time": "17:00",
+            "custom_banner_url": "https://cdn.phototourl.com/member/2026-08-13-901c4eb9-92cc-4b35-9ef8-7de0403ef9a1.jpg",
+            "custom_bonus_text": "⚔️ 777 FREESPİN DENEME BONUSU!\n\n🎯 HERGÜN BEDAVA FREESPİN!\n\n⚡ %40 KAYIP BONUSU!\n\n🎉 100 TL HAVALE YATIRIMI!"
+        },
+        {
+            "name": "galyabet",
+            "source_channel": "@galyabetcom",
+            "affiliate_link": "https://t.ly/9jEq_",
+            "post_time": "18:00",
+            "custom_banner_url": "https://cdn.phototourl.com/member/2026-08-13-2bc9feb7-aa05-459b-ac9e-4461d26a766d.png",
+            "custom_bonus_text": "⚔️ 750 TL DENEME BONUSU!\n\n🎁 %100 CASINO & SPOR HOŞGELDİN!\n\n⚡ %30 ANLIK KAYIP BONUSU!\n\n🎰 GÜNLÜK HEDİYE FREESPIN!\n\n🎉 500 TL HAVALE YATIRIMI!"
+        },
+        {
+            "name": "Bankobet",
+            "source_channel": "@bankobettg",
+            "affiliate_link": "https://bankogirisi.com/jhya1h",
+            "post_time": "19:00",
+            "custom_banner_url": "https://cdn.phototourl.com/member/2026-08-13-3750c441-f236-48c4-98c1-7c1346ffd5ae.jpg",
+            "custom_bonus_text": "⚔️ 1.000 TL DENEME BONUSU!\n\n🎯 DEV MAÇLARA ÖZEL EKSTRA ORAN!\n\n⚡ %25 HAFTALIK KAYIP BONUSU!\n\n🎉 100 TL HAVALE YATIRIMI!"
+        }
+    ]
+    
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    for s in default_sponsors:
+        cursor.execute("SELECT id FROM sponsors WHERE lower(name) = lower(?)", (s["name"],))
+        existing_row = cursor.fetchone()
+        if not existing_row:
+            cursor.execute(
+                "INSERT INTO sponsors (name, source_channel, affiliate_link, is_active, created_at, post_time, custom_bonus_text, custom_banner_url) VALUES (?, ?, ?, 1, ?, ?, ?, ?)",
+                (s["name"], s["source_channel"], s["affiliate_link"], now_str, s["post_time"], s["custom_bonus_text"], s["custom_banner_url"])
+            )
+            
+    # Pre-seed Target Channels
+    default_targets = [
+        ("@bocekbet", "Böcek Bet"),
+        ("@bonusveren2027", "Bonus Veren Siteler"),
+        ("@bocekbetsohbet", "Böcek Bet Sohbet"),
+        ("@denemebonussitesi2027", "Deneme Bonusu Sitesi"),
+        ("@denemebonususiteleri2027", "Deneme Bonusu Siteleri"),
+        ("@bocekbetozeloran", "Böcek Bet Özel Oran"),
+        ("@egebetresmigiris", "Egebet Resmi Giriş"),
+        ("@dedebetresmigiris", "Dedebet Resmi Giriş"),
+        ("@denemebonusuverensite2027", "Deneme Bonusu Veren Site"),
+        ("@betineresmigiris", "Betine Resmi Giriş")
+    ]
+    for cid, cname in default_targets:
+        cursor.execute("INSERT OR IGNORE INTO target_channels (channel_id, channel_name, is_active, created_at) VALUES (?, ?, 1, ?)", (cid, cname, now_str))
+
     conn.commit()
     conn.close()
 

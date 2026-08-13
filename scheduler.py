@@ -73,6 +73,13 @@ def process_single_sponsor(sponsor_id: int):
             custom_text = db.get_default_bonus_text(sponsor_name)
             
         banner_url = sponsor.get("custom_banner_url", "").strip() or None
+        
+        # If no custom banner URL provided, pull the freshest photo from sponsor channel!
+        if not banner_url:
+            channel_post = scraper.fetch_latest_channel_post(source_channel)
+            if channel_post and channel_post.get("photo_url"):
+                banner_url = channel_post.get("photo_url")
+                
         original_msg_id = f"bonus_{now_turkey.strftime('%Y%m%d')}_{sponsor_id}"
         
         btn_text = cta_text.replace("{SPONSOR}", sponsor_name.upper()).replace("{sponsor}", sponsor_name)
@@ -135,8 +142,8 @@ def run_daily_affiliate_job():
 def auto_catchup_daily_posts():
     """
     Periodic catch-up task (runs every 15 minutes).
-    Checks if any sponsor's scheduled post hour has arrived today in Turkey time,
-    and publishes it if not already sent today. This guarantees 100% reliability even if cloud slept.
+    ONLY checks if any sponsor's scheduled post hour is EXACTLY in the current hour window,
+    preventing all sponsors from firing at once if the server boots up late in the evening.
     """
     settings = db.get_settings()
     if settings.get("auto_post_enabled", "true").lower() != "true":
@@ -156,8 +163,9 @@ def auto_catchup_daily_posts():
         except Exception:
             s_hour, s_minute = 12, 0
             
-        # If current time is at or past the scheduled time today
-        if (current_hour > s_hour) or (current_hour == s_hour and current_minute >= s_minute):
+        # Strictly catch up ONLY if we are currently in that same hour!
+        # Example: At 14:15 catch up Natobet (14:00), but at 21:00 NEVER blast 13:00-19:00 sponsors!
+        if current_hour == s_hour and current_minute >= s_minute:
             process_single_sponsor(sponsor["id"])
 
 def keep_alive_ping():
