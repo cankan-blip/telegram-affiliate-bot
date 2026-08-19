@@ -96,20 +96,36 @@ def init_db():
     # Pre-seed Sponsors with exact user texts and phototourl banner links
     default_sponsors = [
         {
-            "name": "casivera",
-            "source_channel": "@casivera",
-            "affiliate_link": "https://csvera.link/BocekCasino",
-            "post_time": "12:00",
-            "custom_banner_url": "https://cdn.phototourl.com/member/2026-08-13-94356eb1-3d75-4401-808d-c004775475fc.jpg",
-            "custom_bonus_text": "⚔️ 1.000 TL DENEME BONUSU!\n\n⚡ %30 KAYIP BONUSU!\n\n🎰 HERGÜN HEDİYE FREESPİN!\n\n🎉 100 TL HAVALE YATIRIMI!"
+            "name": "robobet",
+            "source_channel": "@sosyalrobobet",
+            "affiliate_link": "https://fnmn.io/cnknrb",
+            "post_time": "10:00",
+            "custom_banner_url": "https://cdn.phototourl.com/member/2026-08-19-7ac0db95-4229-465d-a466-46525aad11e9.jpg",
+            "custom_bonus_text": "⚔️ 1.000 TL DENEME BONUSU!\n\n🎯 HERGÜN BEDAVA FREESPİN!\n\n⚡️ %40 KAYIP BONUSU!\n\n🎉 100 TL HAVALE YATIRIMI!"
         },
         {
-            "name": "robinbet",
-            "source_channel": "@robinresmi",
-            "affiliate_link": "https://robinaa.xyz/pwyxlj",
+            "name": "ATOMBET",
+            "source_channel": "@atombetsosyal",
+            "affiliate_link": "https://fnmn.io/cnkntm",
+            "post_time": "11:00",
+            "custom_banner_url": "https://cdn.phototourl.com/member/2026-08-19-5b1bb21e-82bd-4e00-9e17-97d089d70417.jpg",
+            "custom_bonus_text": "⚔️ 2.000 TL  DENEME BONUSU!\n\n🎯 HERGÜN BEDAVA FREESPİN!\n\n⚡️ %15 KAYIP BONUSU!\n\n🎉 100 TL HAVALE YATIRIMI!"
+        },
+        {
+            "name": "parabet",
+            "source_channel": "@parabet",
+            "affiliate_link": "https://click.avlinks.click/MEHw9sFh",
+            "post_time": "12:00",
+            "custom_banner_url": "https://cdn.phototourl.com/member/2026-08-19-f78a7dee-9dfd-41c2-b011-fcc62e794868.jpg",
+            "custom_bonus_text": "⚔️ 400 Freespin + 70 000 TL  DENEME BONUSU!\n\n🎯 HERGÜN BEDAVA FREESPİN!\n\n⚡️ %40 KAYIP BONUSU!\n\n🎉 100 TL HAVALE YATIRIMI!"
+        },
+        {
+            "name": "skorbet",
+            "source_channel": "@skorbetresmi",
+            "affiliate_link": "https://fnmn.io/cnknskr",
             "post_time": "13:00",
-            "custom_banner_url": "https://cdn.phototourl.com/member/2026-08-13-674f5325-77a0-4983-b00c-85f33e44cca0.png",
-            "custom_bonus_text": "⚔️ 500 TL DENEME BONUSU!\n\n🎯 HERGÜN BEDAVA FREESPİN!\n\n⚡ %30 KAYIP BONUSU!\n\n🎉 250 TL HAVALE YATIRIMI!"
+            "custom_banner_url": "https://cdn.phototourl.com/member/2026-08-19-2f3cee0c-48b4-4e9f-a009-0f5709d08d1b.jpg",
+            "custom_bonus_text": "⚔️ 1.000 TL DENEME BONUSU!\n\n🎯 HERGÜN BEDAVA FREESPİN!\n\n⚡️ %15 KAYIP BONUSU!\n\n🎉 100 TL HAVALE YATIRIMI!"
         },
         {
             "name": "Natobet",
@@ -144,16 +160,8 @@ def init_db():
             "custom_bonus_text": "⚔️ 777 FREESPİN DENEME BONUSU!\n\n🎯 HERGÜN BEDAVA FREESPİN!\n\n⚡ %40 KAYIP BONUSU!\n\n🎉 100 TL HAVALE YATIRIMI!"
         },
         {
-            "name": "galyabet",
-            "source_channel": "@galyabetcom",
-            "affiliate_link": "https://t.ly/9jEq_",
-            "post_time": "18:00",
-            "custom_banner_url": "https://cdn.phototourl.com/member/2026-08-13-2bc9feb7-aa05-459b-ac9e-4461d26a766d.png",
-            "custom_bonus_text": "⚔️ 750 TL DENEME BONUSU!\n\n🎁 %100 CASINO & SPOR HOŞGELDİN!\n\n⚡ %30 ANLIK KAYIP BONUSU!\n\n🎰 GÜNLÜK HEDİYE FREESPIN!\n\n🎉 500 TL HAVALE YATIRIMI!"
-        },
-        {
             "name": "Bankobet",
-            "source_channel": "@bankobettg",
+            "source_channel": "@bankobetresmi",
             "affiliate_link": "https://bankogirisi.com/jhya1h",
             "post_time": "19:00",
             "custom_banner_url": "https://cdn.phototourl.com/member/2026-08-13-3750c441-f236-48c4-98c1-7c1346ffd5ae.jpg",
@@ -173,15 +181,12 @@ def init_db():
             
     # Pre-seed Target Channels
     default_targets = [
-        ("@bocekbet", "Böcek Bet"),
-        ("@bonusveren2027", "Bonus Veren Siteler"),
-        ("@bocekbetsohbet", "Böcek Bet Sohbet"),
-        ("@denemebonussitesi2027", "Deneme Bonusu Sitesi"),
-        ("@denemebonususiteleri2027", "Deneme Bonusu Siteleri"),
-        ("@bocekbetozeloran", "Böcek Bet Özel Oran"),
-        ("@egebetresmigiris", "Egebet Resmi Giriş"),
-        ("@dedebetresmigiris", "Dedebet Resmi Giriş"),
-        ("@denemebonusuverensite2027", "Deneme Bonusu Veren Site"),
+        ("@bocekbet", "bocek-resmi"),
+        ("@denemebonususiteleri2027", "bocek-denemebonusu"),
+        ("@bocekbetozeloran", "bocek-özeloran"),
+        ("@egebetresmigiris", "egetbetresmigiris"),
+        ("@dedebetresmigiris", "dedebetresmigiris"),
+        ("@denemebonusuverensite2027", "denemebonusuverensite2027"),
         ("@betineresmigiris", "Betine Resmi Giriş")
     ]
     for cid, cname in default_targets:
