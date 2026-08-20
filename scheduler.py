@@ -127,7 +127,7 @@ def process_single_sponsor(sponsor_id: int):
             original_msg_id=original_msg_id,
             content_preview=transformed_post["transformed_text"],
             affiliate_link_used=affiliate_link,
-            target_channel=f"{target_name} ({target_id})",
+            target_channel=target_id,
             status=status,
             error_msg=error_msg
         )
@@ -154,7 +154,19 @@ def auto_catchup_daily_posts():
     current_minute = now_turkey.minute
     
     sponsors = db.get_active_sponsors()
+    target_channels = db.get_active_target_channels()
+    
     for sponsor in sponsors:
+        # Check if already posted to all active target channels today
+        already_posted_all = True
+        for target in target_channels:
+            if not db.is_sponsor_posted_today(sponsor["id"], target["channel_id"]):
+                already_posted_all = False
+                break
+                
+        if already_posted_all:
+            continue
+            
         post_time = sponsor.get("post_time", "12:00")
         try:
             parts = post_time.split(":")

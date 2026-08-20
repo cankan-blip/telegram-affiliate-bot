@@ -3,6 +3,7 @@ import os
 import json
 from typing import List, Dict, Any, Optional
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data.db")
 
@@ -340,19 +341,27 @@ def save_settings(settings_dict: Dict[str, str]):
 # --- POST HISTORY OPERATIONS ---
 def is_post_already_sent(sponsor_id: int, original_msg_id: str, target_channel: str) -> bool:
     conn = get_db()
+    cid = target_channel.strip()
     row = conn.execute(
-        "SELECT id FROM post_history WHERE sponsor_id = ? AND original_msg_id = ? AND target_channel = ? AND status = 'SUCCESS'",
-        (sponsor_id, str(original_msg_id), str(target_channel))
+        "SELECT id FROM post_history WHERE sponsor_id = ? AND original_msg_id = ? AND (target_channel LIKE ? OR target_channel = ?) AND status = 'SUCCESS'",
+        (sponsor_id, str(original_msg_id), f"%{cid}%", cid)
     ).fetchone()
     conn.close()
     return row is not None
 
 def is_sponsor_posted_today(sponsor_id: int, target_channel: str) -> bool:
     conn = get_db()
-    today_str = datetime.now().strftime("%Y-%m-%d")
+    today_turkey = datetime.now(ZoneInfo("Europe/Istanbul")).strftime("%Y-%m-%d")
+    today_utc = datetime.now().strftime("%Y-%m-%d")
+    cid = target_channel.strip()
+    
     row = conn.execute(
-        "SELECT id FROM post_history WHERE sponsor_id = ? AND target_channel = ? AND status = 'SUCCESS' AND sent_at LIKE ?",
-        (sponsor_id, str(target_channel), f"{today_str}%")
+        """SELECT id FROM post_history 
+           WHERE sponsor_id = ? 
+             AND (target_channel LIKE ? OR target_channel = ?) 
+             AND status = 'SUCCESS' 
+             AND (sent_at LIKE ? OR sent_at LIKE ?)""",
+        (sponsor_id, f"%{cid}%", cid, f"{today_turkey}%", f"{today_utc}%")
     ).fetchone()
     conn.close()
     return row is not None
